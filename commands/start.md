@@ -36,6 +36,7 @@ Start the heartbeat daemon for this project. Follow these steps exactly:
 3. **Check existing config**: Read `.claude/claudeclaw/settings.json` (if it exists). Determine which sections are already configured:
    - **Heartbeat configured** = `heartbeat.enabled` is `true` AND `heartbeat.prompt` is non-empty
    - **Telegram configured** = `telegram.token` is non-empty
+   - **Slack configured** = `slack.botToken` is non-empty AND `slack.appToken` is non-empty
    - **Security configured** = `security.level` exists and is not `"moderate"` (the default), OR `security.allowedTools`/`security.disallowedTools` are non-empty
 
 4. **Interactive setup — smart mode** (BEFORE launching the daemon):
@@ -59,6 +60,7 @@ Start the heartbeat daemon for this project. Follow these steps exactly:
    - **Model** (always ask if `model` is empty/unset): "Which Claude model should ClaudeClaw use?" (header: "Model", options: "opus (default)", "sonnet", "haiku", "glm")
    - **If heartbeat is NOT configured**: "Enable heartbeat? Example: I can remind you to drink water every 30 minutes, or you can fully customize what runs." (header: "Heartbeat", options: "Yes" / "No")
    - **If Telegram is NOT configured**: "Configure Telegram? Recommended if you want it 24/7 live." (header: "Telegram", options: "Yes" / "No")
+   - **If Slack is NOT configured**: "Configure Slack? Connect your agent to Slack channels." (header: "Slack", options: "Yes" / "No")
    - **If security is NOT configured**: "What security level for Claude?" (header: "Security", options:
      - "Moderate (Recommended)" (description: "Full access scoped to project directory")
      - "Locked" (description: "Read-only — can only search and read files, no edits, bash, or web")
@@ -81,7 +83,14 @@ Start the heartbeat daemon for this project. Follow these steps exactly:
      - Telegram bot token (hint: create/get it from `@BotFather`)
      - Allowed Telegram user IDs (hint: use `@userinfobot` to get your numeric ID)
      - Set `telegram.token` and `telegram.allowedUserIds` (as array of numbers) accordingly.
-     - Note: Telegram bot runs in-process with the daemon. All components (heartbeat, cron, telegram) share one Claude session.
+     - Note: Telegram bot runs in-process with the daemon. All components (heartbeat, cron, telegram, slack) share one Claude session.
+
+   - **If yes to Slack**: Do NOT use AskUserQuestion for Slack fields. Ask in normal free-form text for three values (all optional, user can skip):
+     - Slack bot token (hint: starts with `xoxb-`, found in your Slack app's OAuth & Permissions page)
+     - Slack app-level token (hint: starts with `xapp-`, create one in your app's Basic Information page with `connections:write` scope)
+     - Allowed Slack channel IDs (hint: right-click a channel → "View channel details" → copy the Channel ID at the bottom)
+     - Set `slack.botToken`, `slack.appToken`, and `slack.allowedChannelIds` (as array of strings) accordingly.
+     - Note: Slack bot uses Socket Mode and runs in-process with the daemon. Requires the app to have Socket Mode enabled.
 
    - **Security level mapping** — set `security.level` in settings based on their choice:
      - "Locked" → `"locked"`
@@ -167,6 +176,11 @@ Defaults: `WEB_HOST=127.0.0.1`, `WEB_PORT=4632` unless changed via settings or `
     "token": "123456:ABC-DEF...",
     "allowedUserIds": [123456789]
   },
+  "slack": {
+    "botToken": "xoxb-...",
+    "appToken": "xapp-...",
+    "allowedChannelIds": ["C0123456789"]
+  },
   "security": {
     "level": "moderate",
     "allowedTools": [],
@@ -184,6 +198,9 @@ Defaults: `WEB_HOST=127.0.0.1`, `WEB_PORT=4632` unless changed via settings or `
 - `heartbeat.prompt` — the prompt sent to Claude on each heartbeat. Can be an inline string or a file path ending in `.md`, `.txt`, or `.prompt` (relative to project root). File contents are re-read on each tick, so edits take effect without restarting the daemon.
 - `telegram.token` — Telegram bot token from @BotFather
 - `telegram.allowedUserIds` — array of numeric Telegram user IDs allowed to interact
+- `slack.botToken` — Slack bot token (xoxb-...) from your Slack app's OAuth & Permissions
+- `slack.appToken` — Slack app-level token (xapp-...) for Socket Mode, created in Basic Information
+- `slack.allowedChannelIds` — array of Slack channel IDs for message forwarding
 - `security.level` — one of: `locked`, `strict`, `moderate`, `unrestricted`
 - `security.allowedTools` — extra tools to allow on top of the level (e.g. `["Bash(git:*)"]`)
 - `security.disallowedTools` — tools to block on top of the level

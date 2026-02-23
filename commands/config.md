@@ -30,6 +30,11 @@ Parse `$ARGUMENTS` to identify what the user wants. If no arguments are given, s
    - Token: (first 5 chars + "..." or "not configured")
    - Allowed users: (list IDs or "none")
 
+   **Slack**
+   - Bot Token: (first 5 chars + "..." or "not configured")
+   - App Token: (first 5 chars + "..." or "not configured")
+   - Allowed channels: (list IDs or "none")
+
    **Security**
    - Level: (locked/strict/moderate/unrestricted)
    - Allowed tools: (list or "default")
@@ -97,6 +102,44 @@ Disable Telegram integration.
 
 1. Read `.claude/claudeclaw/settings.json`.
 2. Set `telegram.token` to `""` and `telegram.allowedUserIds` to `[]`.
+3. Write and confirm.
+
+### `slack bot-token <token>` / `slack bot-token`
+
+Set or update the Slack bot token (xoxb-...).
+
+1. If token is in `$ARGUMENTS`, use it directly.
+2. Otherwise, use **AskUserQuestion**: "What is your Slack bot token (xoxb-...)?" (header: "Bot Token", options: let user type via Other)
+3. Read `.claude/claudeclaw/settings.json`.
+4. Set `slack.botToken` to the new value.
+5. Write and confirm.
+
+### `slack app-token <token>` / `slack app-token`
+
+Set or update the Slack app-level token (xapp-...) for Socket Mode.
+
+1. If token is in `$ARGUMENTS`, use it directly.
+2. Otherwise, use **AskUserQuestion**: "What is your Slack app-level token (xapp-...)?" (header: "App Token", options: let user type via Other)
+3. Read `.claude/claudeclaw/settings.json`.
+4. Set `slack.appToken` to the new value.
+5. Write and confirm.
+
+### `slack channels <id1,id2,...>` / `slack channels`
+
+Set the allowed Slack channel IDs.
+
+1. If IDs are in `$ARGUMENTS`, parse them as comma-separated strings.
+2. Otherwise, use **AskUserQuestion**: "What Slack channel IDs should receive messages? (comma-separated)" (header: "Channel IDs", options: let user type via Other)
+3. Read `.claude/claudeclaw/settings.json`.
+4. Set `slack.allowedChannelIds` to the array of strings.
+5. Write and confirm.
+
+### `slack off` / `slack disable`
+
+Disable Slack integration.
+
+1. Read `.claude/claudeclaw/settings.json`.
+2. Set `slack.botToken` to `""`, `slack.appToken` to `""`, and `slack.allowedChannelIds` to `[]`.
 3. Write and confirm.
 
 ### `model <name>` / `model`
@@ -213,6 +256,11 @@ Reset all settings to defaults.
        "token": "",
        "allowedUserIds": []
      },
+     "slack": {
+       "botToken": "",
+       "appToken": "",
+       "allowedChannelIds": []
+     },
      "security": {
        "level": "moderate",
        "allowedTools": [],
@@ -255,6 +303,11 @@ Location: `.claude/claudeclaw/settings.json`
     "token": "123456:ABC-DEF...",
     "allowedUserIds": [123456789]
   },
+  "slack": {
+    "botToken": "xoxb-...",
+    "appToken": "xapp-...",
+    "allowedChannelIds": ["C0123456789"]
+  },
   "security": {
     "level": "moderate",
     "allowedTools": [],
@@ -285,6 +338,9 @@ Location: `.claude/claudeclaw/settings.json`
 | `heartbeat.excludeWindows[].end`   | string | Window end time in `HH:MM` 24h format         |
 | `telegram.token`           | string     | Bot token from @BotFather                      |
 | `telegram.allowedUserIds`  | number[]   | Telegram user IDs allowed to interact          |
+| `slack.botToken`           | string     | Slack bot token (xoxb-...)                     |
+| `slack.appToken`           | string     | Slack app-level token (xapp-...) for Socket Mode |
+| `slack.allowedChannelIds`  | string[]   | Slack channel IDs for forwarding messages      |
 | `security.level`           | string     | `locked` \| `strict` \| `moderate` \| `unrestricted` |
 | `security.allowedTools`    | string[]   | Extra tools to allow                           |
 | `security.disallowedTools` | string[]   | Tools to block                                 |

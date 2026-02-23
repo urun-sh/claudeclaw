@@ -4,10 +4,11 @@ import { loadSettings, initConfig } from "../config";
 
 export async function send(args: string[]) {
   const telegramFlag = args.includes("--telegram");
-  const message = args.filter((a) => a !== "--telegram").join(" ");
+  const slackFlag = args.includes("--slack");
+  const message = args.filter((a) => a !== "--telegram" && a !== "--slack").join(" ");
 
   if (!message) {
-    console.error("Usage: claudeclaw send <message> [--telegram]");
+    console.error("Usage: claudeclaw send <message> [--telegram] [--slack]");
     process.exit(1);
   }
 
@@ -51,6 +52,36 @@ export async function send(args: string[]) {
       }
     }
     console.log("Sent to Telegram.");
+  }
+
+  if (slackFlag) {
+    const settings = await loadSettings();
+    const botToken = settings.slack.botToken;
+    const channelIds = settings.slack.allowedChannelIds;
+
+    if (!botToken || channelIds.length === 0) {
+      console.error("Slack is not configured in settings (need botToken and allowedChannelIds).");
+      process.exit(1);
+    }
+
+    const text = result.exitCode === 0
+      ? result.stdout || "(empty)"
+      : `error (exit ${result.exitCode}): ${result.stderr || "Unknown"}`;
+
+    for (const channelId of channelIds) {
+      const res = await fetch("https://slack.com/api/chat.postMessage", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json; charset=utf-8",
+          Authorization: `Bearer ${botToken}`,
+        },
+        body: JSON.stringify({ channel: channelId, text }),
+      });
+      if (!res.ok) {
+        console.error(`Failed to send to Slack channel ${channelId}: ${res.statusText}`);
+      }
+    }
+    console.log("Sent to Slack.");
   }
 
   if (result.exitCode !== 0) process.exit(result.exitCode);

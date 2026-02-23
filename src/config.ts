@@ -24,6 +24,7 @@ const DEFAULT_SETTINGS: Settings = {
     excludeWindows: [],
   },
   telegram: { token: "", allowedUserIds: [] },
+  slack: { botToken: "", appToken: "", allowedChannelIds: [] },
   security: { level: "moderate", allowedTools: [], disallowedTools: [] },
   web: { enabled: false, host: "127.0.0.1", port: 4632 },
 };
@@ -46,6 +47,12 @@ export interface TelegramConfig {
   allowedUserIds: number[];
 }
 
+export interface SlackConfig {
+  botToken: string;
+  appToken: string;
+  allowedChannelIds: string[];
+}
+
 export type SecurityLevel =
   | "locked"
   | "strict"
@@ -66,6 +73,7 @@ export interface Settings {
   timezoneOffsetMinutes: number;
   heartbeat: HeartbeatConfig;
   telegram: TelegramConfig;
+  slack: SlackConfig;
   security: SecurityConfig;
   web: WebConfig;
 }
@@ -127,6 +135,13 @@ function parseSettings(raw: Record<string, any>): Settings {
     telegram: {
       token: raw.telegram?.token ?? "",
       allowedUserIds: raw.telegram?.allowedUserIds ?? [],
+    },
+    slack: {
+      botToken: raw.slack?.botToken ?? "",
+      appToken: raw.slack?.appToken ?? "",
+      allowedChannelIds: Array.isArray(raw.slack?.allowedChannelIds)
+        ? raw.slack.allowedChannelIds
+        : [],
     },
     security: {
       level,

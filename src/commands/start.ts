@@ -85,6 +85,10 @@ try {
     info.push(GREEN + "\\ud83d\\udce1" + R);
   }
 
+  if (state.slack) {
+    info.push(GREEN + "\\ud83d\\udcac" + R);
+  }
+
   var mid = " " + info.join(" " + B + " ") + " ";
 
   process.stdout.write(HEADER + "\\n" + B + mid + B + "\\n" + FOOTER);
@@ -357,6 +361,27 @@ export async function start(args: string[] = []) {
   await initTelegram(currentSettings.telegram.token);
   if (!telegramToken) console.log("  Telegram: not configured");
 
+  // --- Slack ---
+  let slackSend: ((channel: string, text: string) => Promise<void>) | null = null;
+  let slackBotToken = "";
+
+  async function initSlack(botToken: string, appToken: string) {
+    if (botToken && appToken && botToken !== slackBotToken) {
+      const { startPolling, sendMessage } = await import("./slack");
+      startPolling(debugFlag);
+      slackSend = (channel, text) => sendMessage(botToken, channel, text);
+      slackBotToken = botToken;
+      console.log(`[${ts()}] Slack: enabled`);
+    } else if ((!botToken || !appToken) && slackBotToken) {
+      slackSend = null;
+      slackBotToken = "";
+      console.log(`[${ts()}] Slack: disabled`);
+    }
+  }
+
+  await initSlack(currentSettings.slack.botToken, currentSettings.slack.appToken);
+  if (!slackBotToken) console.log("  Slack: not configured");
+
   function isAddrInUse(err: unknown): boolean {
     if (!err || typeof err !== "object") return false;
     const code = "code" in err ? String((err as { code?: unknown }).code) : "";
@@ -469,6 +494,23 @@ export async function start(args: string[] = []) {
     }
   }
 
+  function forwardToSlack(label: string, result: { exitCode: number; stdout: string; stderr: string }) {
+    if (!slackSend || currentSettings.slack.allowedChannelIds.length === 0) return;
+    const text = result.exitCode === 0
+      ? `${label ? `[${label}]\n` : ""}${result.stdout || "(empty)"}`
+      : `${label ? `[${label}] ` : ""}error (exit ${result.exitCode}): ${result.stderr || "Unknown"}`;
+    for (const channelId of currentSettings.slack.allowedChannelIds) {
+      slackSend(channelId, text).catch((err) =>
+        console.error(`[Slack] Failed to forward to ${channelId}: ${err}`)
+      );
+    }
+  }
+
+  function forwardToAll(label: string, result: { exitCode: number; stdout: string; stderr: string }) {
+    forwardToTelegram(label, result);
+    forwardToSlack(label, result);
+  }
+
   // --- Heartbeat scheduling ---
   function scheduleHeartbeat() {
     if (heartbeatTimer) clearTimeout(heartbeatTimer);
@@ -513,7 +555,7 @@ export async function start(args: string[] = []) {
           return run("heartbeat", mergedPrompt);
         })
         .then((r) => {
-          if (r) forwardToTelegram("", r);
+          if (r) forwardToAll("", r);
         });
       nextHeartbeatAt = nextAllowedHeartbeatAt(
         currentSettings.heartbeat,
@@ -536,7 +578,7 @@ export async function start(args: string[] = []) {
     const triggerPrompt = hasPromptFlag ? payload : "Wake up, my friend!";
     const triggerResult = await run("trigger", triggerPrompt);
     console.log(triggerResult.stdout);
-    if (telegramFlag) forwardToTelegram("", triggerResult);
+    if (telegramFlag) forwardToAll("", triggerResult);
     if (triggerResult.exitCode !== 0) {
       console.error(`[${ts()}] Startup trigger failed (exit ${triggerResult.exitCode}). Daemon will continue running.`);
     }
@@ -599,6 +641,9 @@ export async function start(args: string[] = []) {
 
       // Telegram changes
       await initTelegram(newSettings.telegram.token);
+
+      // Slack changes
+      await initSlack(newSettings.slack.botToken, newSettings.slack.appToken);
     } catch (err) {
       console.error(`[${ts()}] Hot-reload error:`, err);
     }
@@ -617,6 +662,7 @@ export async function start(args: string[] = []) {
       })),
       security: currentSettings.security.level,
       telegram: !!currentSettings.telegram.token,
+      slack: !!(currentSettings.slack.botToken && currentSettings.slack.appToken),
       startedAt: daemonStartedAt,
       web: {
         enabled: !!web,
@@ -638,7 +684,7 @@ export async function start(args: string[] = []) {
           .then((r) => {
             if (job.notify === false) return;
             if (job.notify === "error" && r.exitCode === 0) return;
-            forwardToTelegram(job.name, r);
+            forwardToAll(job.name, r);
           })
           .finally(async () => {
             if (job.recurring) return;
